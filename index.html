@@ -41,6 +41,17 @@
       }
     }
 
+    :root[data-theme="dark"] {
+      --bg: #0b1220;
+      --surface: #0f172a;
+      --field: #111a2d;
+      --text: #e5e7eb;
+      --muted: #cbd5e1;
+      --panel: rgba(255, 255, 255, 0.05);
+      --shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      --border: rgba(255, 255, 255, 0.12);
+    }
+
     * { box-sizing: border-box; }
 
     body {
@@ -62,6 +73,28 @@
       z-index: 10;
       padding: calc(var(--spacing) * 3) calc(var(--spacing) * 3);
     }
+
+    .theme-fab {
+      position: fixed;
+      left: calc(var(--spacing) * 3);
+      bottom: calc(var(--spacing) * 3.5);
+      width: var(--fab-size);
+      height: var(--fab-size);
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--field);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      font-size: 1.3rem;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      z-index: 9;
+    }
+
+    .theme-fab:hover { transform: translateY(-2px) scale(1.02); }
+    .theme-fab:active { transform: translateY(0); box-shadow: none; }
 
     .bar {
       position: fixed;
@@ -393,31 +426,6 @@
       margin-top: calc(var(--spacing) * 0.5);
     }
 
-    .map-helper .helper-row {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: var(--spacing);
-      align-items: center;
-    }
-
-    .map-helper input[type="text"] {
-      padding: calc(var(--spacing) * 1.2);
-      font-size: 0.95rem;
-    }
-
-    .helper-link {
-      background: none;
-      border: none;
-      padding: 0;
-      color: var(--primary);
-      font-weight: 700;
-      cursor: pointer;
-      text-align: left;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-    }
-
     .helper-hint {
       color: var(--muted);
       font-size: 0.9rem;
@@ -481,6 +489,7 @@
       }
       main { padding: 9.5rem calc(var(--spacing) * 2.5) calc(var(--spacing) * 9); }
       #fab { right: calc(var(--spacing) * 2.5); }
+      .theme-fab { left: calc(var(--spacing) * 2.5); }
     }
   </style>
 </head>
@@ -494,6 +503,7 @@
     <section class="history" id="history"></section>
   </main>
   <button id="fab" aria-label="Tambah catatan">+</button>
+  <button id="theme-toggle" class="theme-fab" aria-label="Ubah tema">🌓</button>
 
   <dialog id="entry-dialog">
     <div class="modal">
@@ -507,20 +517,15 @@
       <form id="entry-form" novalidate>
         <label for="distance">
           Jarak Tempuh (km)
-          <input type="number" inputmode="decimal" id="distance" name="distance" min="0.1" max="9999" step="0.1" required placeholder="Dari isi penuh ke isi penuh">
+          <input type="text" inputmode="decimal" id="distance" name="distance" required placeholder="Dari isi penuh ke isi penuh">
           <div class="error" id="distance-error"></div>
         </label>
         <div class="map-helper">
-          <button type="button" class="helper-link" id="map-helper-toggle">Tempel jarak dari peta</button>
-          <div class="helper-row" id="map-helper-row" hidden>
-            <input type="text" id="map-distance" placeholder='Misal: "12,3 km" atau "12.3"' autocomplete="off">
-            <button type="button" class="secondary" id="map-helper-apply">Isi</button>
-          </div>
-          <div class="helper-actions" id="map-helper-actions" hidden>
+          <div class="helper-actions" id="map-helper-actions">
             <a class="secondary-link" id="map-helper-open" href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">Buka Google Maps</a>
             <button type="button" class="secondary" id="map-helper-paste">Tempel &amp; Isi</button>
           </div>
-          <div class="helper-hint">Salin jarak dari Google Maps, contoh: 12,3 km</div>
+          <div class="helper-hint">Salin jarak dari Google Maps, contoh: 12,3 km. Bisa tempel langsung di kolom jarak atau klik Tempel &amp; Isi.</div>
           <div class="helper-error" id="map-helper-error"></div>
         </div>
         <label for="fuel">
@@ -609,14 +614,12 @@
       fuel: qs('#fuel'),
       date: qs('#date'),
       notes: qs('#notes'),
-      mapToggle: qs('#map-helper-toggle'),
-      mapRow: qs('#map-helper-row'),
-      mapApply: qs('#map-helper-apply'),
-      mapInput: qs('#map-distance'),
+      themeToggle: qs('#theme-toggle'),
       mapError: qs('#map-helper-error'),
       mapActions: qs('#map-helper-actions'),
       mapOpen: qs('#map-helper-open'),
       mapPaste: qs('#map-helper-paste'),
+      mapCta: qs('#map-helper-paste'),
       errors: {
         distance: qs('#distance-error'),
         fuel: qs('#fuel-error'),
@@ -630,6 +633,7 @@
       editId: null,
       storageSupported: true,
       mapIntent: false,
+      mediaQuery: null,
     };
 
     const defaultData = {
@@ -869,15 +873,16 @@
 
     function validateForm() {
       let valid = true;
-      const distance = Number(elements.distance.value);
+      const distanceRaw = elements.distance.value.trim();
+      const distanceParsed = parseDistanceText(distanceRaw);
       const fuel = Number(elements.fuel.value);
       const date = elements.date.value;
       clearErrors();
 
-      if (!distance || distance <= 0) {
+      if (!distanceParsed || distanceParsed <= 0) {
         elements.errors.distance.textContent = 'Jarak harus lebih dari 0';
         valid = false;
-      } else if (distance > 9999) {
+      } else if (distanceParsed > 9999) {
         elements.errors.distance.textContent = 'Maksimal 9999 km';
         valid = false;
       }
@@ -899,17 +904,6 @@
       return valid;
     }
 
-    function toggleMapHelper() {
-      const willShow = elements.mapRow.hidden;
-      elements.mapRow.hidden = !willShow;
-      elements.mapActions.hidden = !willShow;
-      elements.mapError.textContent = '';
-      if (willShow) {
-        elements.mapInput.focus();
-        elements.mapInput.select();
-      }
-    }
-
     function parseDistanceText(text) {
       if (!text) return null;
       const normalized = text.replace(',', '.');
@@ -921,24 +915,24 @@
     }
 
     function applyMapDistance() {
-      const parsed = parseDistanceText(elements.mapInput.value.trim());
+      const parsed = parseDistanceText(elements.distance.value.trim());
       if (parsed === null) {
         elements.mapError.textContent = 'Tidak bisa baca jarak. Gunakan format "12,3 km".';
-        return;
+        return false;
       }
       elements.mapError.textContent = '';
       elements.distance.value = parsed;
       state.mapIntent = false;
       updateSubmitState();
-      elements.distance.focus();
+      return true;
     }
 
     let pasteCueTimeout = null;
     function startPasteCue() {
       if (pasteCueTimeout) clearTimeout(pasteCueTimeout);
-      elements.mapPaste.classList.add('cta-pulse');
+      elements.mapCta?.classList.add('cta-pulse');
       pasteCueTimeout = setTimeout(() => {
-        elements.mapPaste.classList.remove('cta-pulse');
+        elements.mapCta?.classList.remove('cta-pulse');
       }, 4200);
     }
 
@@ -949,8 +943,12 @@
       }
       try {
         const text = await navigator.clipboard.readText();
-        elements.mapInput.value = text || '';
-        applyMapDistance();
+        elements.distance.value = text || '';
+        if (!applyMapDistance()) {
+          elements.distance.focus();
+        } else {
+          elements.distance.focus();
+        }
       } catch (err) {
         elements.mapError.textContent = 'Gagal akses clipboard. Pastikan izin diberikan.';
         console.error(err);
@@ -1029,7 +1027,7 @@
     }
 
     function buildEntryFromForm() {
-      const distance = Number(elements.distance.value);
+      const distance = parseDistanceText(elements.distance.value.trim()) || 0;
       const fuel = Number(elements.fuel.value);
       const dateStr = elements.date.value;
       const timestamp = dateStr ? new Date(dateStr + 'T00:00:00').getTime() : Date.now();
@@ -1072,25 +1070,25 @@
         closeDialog();
       });
 
-      elements.mapToggle.addEventListener('click', toggleMapHelper);
-      elements.mapApply.addEventListener('click', applyMapDistance);
-      elements.mapInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          applyMapDistance();
-        }
-      });
       elements.mapPaste.addEventListener('click', pasteFromClipboard);
       elements.mapOpen.addEventListener('click', () => {
         state.mapIntent = true;
-        if (elements.mapRow.hidden) toggleMapHelper();
         startPasteCue();
       });
+      elements.themeToggle.addEventListener('click', cycleTheme);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && state.mapIntent) {
           startPasteCue();
-          elements.mapInput.focus();
-          elements.mapInput.select();
+          elements.distance.focus();
+          elements.distance.select?.();
+        }
+      });
+      elements.distance.addEventListener('paste', (e) => {
+        const text = e.clipboardData?.getData('text');
+        if (text) {
+          e.preventDefault();
+          elements.distance.value = text;
+          applyMapDistance();
         }
       });
       elements.dialog.addEventListener('click', (event) => {
@@ -1109,21 +1107,68 @@
       document.head.appendChild(link);
     }
 
-    function applyThemeColor() {
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    function systemPrefersDark() {
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    function effectiveTheme() {
+      const setting = (state.data && state.data.settings && state.data.settings.darkMode) || 'auto';
+      if (setting === 'auto') return systemPrefersDark() ? 'dark' : 'light';
+      return setting;
+    }
+
+    function applyThemeColor(effective) {
+      const theme = effective || effectiveTheme();
+      const color = theme === 'dark' ? '#0b1220' : '#ffffff';
       let meta = document.querySelector('meta[name="theme-color"]');
       if (!meta) {
         meta = document.createElement('meta');
         meta.name = 'theme-color';
         document.head.appendChild(meta);
       }
-      meta.setAttribute('content', prefersDark ? '#0b1220' : '#ffffff');
+      meta.setAttribute('content', color);
+    }
+
+    function setThemeAttributes() {
+      const setting = (state.data && state.data.settings && state.data.settings.darkMode) || 'auto';
+      const eff = effectiveTheme();
+      if (setting === 'auto') {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', setting);
+      }
+      applyThemeColor(eff);
+      updateThemeToggleLabel(setting, eff);
+    }
+
+    function updateThemeToggleLabel(setting, eff) {
+      if (!elements.themeToggle) return;
+      const icon = setting === 'auto' ? '🌓' : setting === 'dark' ? '🌙' : '☀️';
+      const label = setting === 'auto'
+        ? `Tema: Auto (${eff === 'dark' ? 'Gelap' : 'Terang'})`
+        : `Tema: ${setting === 'dark' ? 'Gelap' : 'Terang'}`;
+      elements.themeToggle.textContent = icon;
+      elements.themeToggle.setAttribute('aria-label', `${label}. Klik untuk ganti`);
+    }
+
+    function cycleTheme() {
+      const order = ['auto', 'dark', 'light'];
+      const current = (state.data && state.data.settings && state.data.settings.darkMode) || 'auto';
+      const next = order[(order.indexOf(current) + 1) % order.length];
+      if (!state.data) return;
+      state.data.settings.darkMode = next;
+      saveData();
+      setThemeAttributes();
     }
 
     function bindThemeWatcher() {
       if (!window.matchMedia) return;
-      const mql = window.matchMedia('(prefers-color-scheme: dark)');
-      mql.addEventListener('change', applyThemeColor);
+      state.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      state.mediaQuery.addEventListener('change', () => {
+        if ((state.data.settings && state.data.settings.darkMode) === 'auto') {
+          setThemeAttributes();
+        }
+      });
     }
 
     function registerServiceWorker() {
@@ -1136,9 +1181,9 @@
     function init() {
       installManifest();
       registerServiceWorker();
-      applyThemeColor();
       bindThemeWatcher();
       loadData();
+      setThemeAttributes();
       sortEntries();
       renderAll();
       wireEvents();
