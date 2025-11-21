@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1e293b">
+  <title>Fuel Tracker</title>
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --text: #0f172a;
+      --muted: #64748b;
+      --panel: rgba(15, 23, 42, 0.06);
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+      --spacing: 0.5rem;
+      --radius: 0.9rem;
+      --border: rgba(15, 23, 42, 0.08);
+      --fab-size: 3.6rem;
+      color-scheme: light;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b1220;
+        --surface: #111827;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --panel: rgba(255, 255, 255, 0.06);
+        --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+        --border: rgba(255, 255, 255, 0.08);
+      }
+      body {
+        background: radial-gradient(120% 120% at 20% 20%, rgba(59, 130, 246, 0.08), transparent 55%), var(--bg);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Sora", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(120% 120% at 20% 20%, rgba(59, 130, 246, 0.06), transparent 55%), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      z-index: 10;
+      padding: calc(var(--spacing) * 3) calc(var(--spacing) * 3);
+    }
+
+    .bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 0.25rem;
+      background: linear-gradient(90deg, var(--primary), var(--success), var(--warning));
+      opacity: 0.6;
+      z-index: 11;
+    }
+
+    #banner {
+      display: none;
+      background: var(--danger);
+      color: #fff;
+      padding: var(--spacing) calc(var(--spacing) * 3);
+      font-weight: 600;
+      text-align: center;
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 8.5rem calc(var(--spacing) * 3) calc(var(--spacing) * 9);
+    }
+
+    .stats {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      gap: var(--spacing);
+      overflow-x: auto;
+      padding-bottom: var(--spacing);
+      scrollbar-width: thin;
+      -ms-overflow-style: none;
+    }
+
+    .stats::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .stats::-webkit-scrollbar-thumb {
+      background: var(--panel);
+      border-radius: 999px;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: calc(var(--spacing) * 2);
+      min-width: 150px;
+      backdrop-filter: blur(8px);
+    }
+
+    .stat .label {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: calc(var(--spacing) * 1.5);
+      display: block;
+    }
+
+    .stat .value {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .history {
+      display: grid;
+      gap: calc(var(--spacing) * 2);
+    }
+
+    .card {
+      position: relative;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: calc(var(--spacing) * 2.5);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 8px;
+      background: var(--bar, var(--success));
+    }
+
+    .card .delete-hint {
+      position: absolute;
+      top: calc(var(--spacing));
+      right: calc(var(--spacing));
+      color: var(--muted);
+      font-size: 0.85rem;
+      opacity: 0.6;
+    }
+
+    .card .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing);
+      font-weight: 700;
+      margin-bottom: var(--spacing);
+    }
+
+    .card .sub {
+      display: flex;
+      gap: calc(var(--spacing) * 1.5);
+      color: var(--muted);
+      font-size: 0.95rem;
+      flex-wrap: wrap;
+    }
+
+    .card .notes {
+      margin-top: var(--spacing);
+      color: var(--text);
+      opacity: 0.9;
+      white-space: pre-line;
+    }
+
+    .empty {
+      text-align: center;
+      padding: calc(var(--spacing) * 6) calc(var(--spacing) * 3);
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      background: var(--panel);
+    }
+
+    #fab {
+      position: fixed;
+      right: calc(var(--spacing) * 3);
+      bottom: calc(var(--spacing) * 3.5);
+      width: var(--fab-size);
+      height: var(--fab-size);
+      border-radius: 50%;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      box-shadow: var(--shadow);
+      font-size: 1.7rem;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      z-index: 9;
+    }
+
+    #fab:hover { transform: translateY(-2px) scale(1.02); }
+    #fab:active { transform: translateY(0); }
+
+    dialog {
+      width: min(560px, 92vw);
+      border: none;
+      border-radius: 1.2rem;
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+    }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 1.2rem;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: calc(var(--spacing) * 3);
+    }
+
+    .modal header {
+      position: static;
+      background: transparent;
+      box-shadow: none;
+      padding: 0 0 calc(var(--spacing) * 2);
+    }
+
+    .modal h2 { margin: 0; font-size: 1.35rem; }
+
+    .help {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: var(--spacing);
+      position: relative;
+    }
+
+    .help .info {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.2rem;
+      height: 1.2rem;
+      border-radius: 50%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      font-weight: 700;
+      color: var(--text);
+      position: relative;
+      cursor: default;
+    }
+
+    .help .info::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: -0.25rem;
+      top: 140%;
+      transform: translate(0, -6px);
+      background: var(--text);
+      color: var(--bg);
+      padding: 0.6rem 0.75rem;
+      border-radius: 0.75rem;
+      width: min(260px, 82vw);
+      font-size: 0.85rem;
+      line-height: 1.3;
+      z-index: 20;
+      box-shadow: var(--shadow);
+      white-space: normal;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+    }
+
+    .help .info:hover::after {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(0, 0);
+    }
+
+    form {
+      display: grid;
+      gap: calc(var(--spacing) * 2);
+      margin-top: calc(var(--spacing) * 2);
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: calc(var(--spacing) / 2);
+      font-weight: 600;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: calc(var(--spacing) * 1.5);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    textarea { min-height: 90px; resize: vertical; }
+
+    .error {
+      color: var(--danger);
+      font-size: 0.9rem;
+      min-height: 1.1em;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--spacing);
+      margin-top: calc(var(--spacing) * 1.5);
+    }
+
+    button.secondary, button.primary {
+      border: none;
+      border-radius: var(--radius);
+      padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2.5);
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+
+    button.secondary {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    button.primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .map-helper {
+      display: grid;
+      gap: calc(var(--spacing) * 1);
+      margin-top: calc(var(--spacing) * 0.5);
+    }
+
+    .map-helper .helper-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: var(--spacing);
+      align-items: center;
+    }
+
+    .map-helper input[type="text"] {
+      padding: calc(var(--spacing) * 1.2);
+      font-size: 0.95rem;
+    }
+
+    .helper-link {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--primary);
+      font-weight: 700;
+      cursor: pointer;
+      text-align: left;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .helper-hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .helper-error {
+      color: var(--danger);
+      font-size: 0.9rem;
+      min-height: 1.1em;
+    }
+
+    .helper-actions {
+      display: flex;
+      gap: var(--spacing);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .secondary-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      text-decoration: none;
+      color: var(--primary);
+      font-weight: 700;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: calc(var(--spacing) * 1.1) calc(var(--spacing) * 1.5);
+      background: var(--panel);
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .secondary-link:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    .cta-pulse {
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45);
+      animation: pulse 1.4s ease-out 0s 3;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45); }
+      70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+
+    @media (max-width: 640px) {
+      dialog {
+        width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        margin: 0;
+      }
+      .modal {
+        height: 100%;
+        border-radius: 0;
+        padding: calc(var(--spacing) * 3) calc(var(--spacing) * 3) calc(var(--spacing) * 5);
+        overflow-y: auto;
+      }
+      main { padding: 9.5rem calc(var(--spacing) * 2.5) calc(var(--spacing) * 9); }
+      #fab { right: calc(var(--spacing) * 2.5); }
+    }
+  </style>
+</head>
+<body>
+  <div class="bar" aria-hidden="true"></div>
+  <div id="banner"></div>
+  <header>
+    <div class="stats" id="stats"></div>
+  </header>
+  <main>
+    <section class="history" id="history"></section>
+  </main>
+  <button id="fab" aria-label="Tambah catatan">+</button>
+
+  <dialog id="entry-dialog">
+    <div class="modal">
+      <header>
+        <h2 id="form-title">Catat Pengisian</h2>
+        <div class="help">
+          <span class="info" tabindex="0" data-tooltip="Cara ukur: Isi fulltank → Catat KM → Pakai motor → Isi fulltank lagi → Input jarak & liter yang masuk">i</span>
+          <span>Metode full-tank untuk akurasi.</span>
+        </div>
+      </header>
+      <form id="entry-form" novalidate>
+        <label for="distance">
+          Jarak Tempuh (km)
+          <input type="number" inputmode="decimal" id="distance" name="distance" min="0.1" max="9999" step="0.1" required placeholder="Dari isi penuh ke isi penuh">
+          <div class="error" id="distance-error"></div>
+        </label>
+        <div class="map-helper">
+          <button type="button" class="helper-link" id="map-helper-toggle">Tempel jarak dari peta</button>
+          <div class="helper-row" id="map-helper-row" hidden>
+            <input type="text" id="map-distance" placeholder='Misal: "12,3 km" atau "12.3"' autocomplete="off">
+            <button type="button" class="secondary" id="map-helper-apply">Isi</button>
+          </div>
+          <div class="helper-actions" id="map-helper-actions" hidden>
+            <a class="secondary-link" id="map-helper-open" href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer">Buka Google Maps</a>
+            <button type="button" class="secondary" id="map-helper-paste">Tempel &amp; Isi</button>
+          </div>
+          <div class="helper-hint">Salin jarak dari Google Maps, contoh: 12,3 km</div>
+          <div class="helper-error" id="map-helper-error"></div>
+        </div>
+        <label for="fuel">
+          BBM untuk Isi Penuh (L)
+          <input type="number" inputmode="decimal" id="fuel" name="fuel" min="0.001" max="99" step="0.001" required placeholder="Berapa liter sampai tangki penuh lagi">
+          <div class="error" id="fuel-error"></div>
+        </label>
+        <label for="date">
+          Tanggal
+          <input type="date" id="date" name="date" required>
+          <div class="error" id="date-error"></div>
+        </label>
+        <label for="notes">
+          Catatan (opsional)
+          <textarea id="notes" name="notes" maxlength="200" placeholder="Misal: Full throttle test"></textarea>
+          <div class="error" id="notes-error"></div>
+        </label>
+        <div class="actions">
+          <button type="button" class="secondary" id="cancel-btn">Batal</button>
+          <button type="submit" class="primary" id="submit-btn" disabled>Simpan</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <script>
+    const manifest = {
+      name: "Fuel Tracker",
+      short_name: "Fuel",
+      start_url: "/",
+      display: "standalone",
+      theme_color: "#1e293b",
+      background_color: "#ffffff",
+      icons: [
+        { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%231e293b'/%3E%3Cpath d='M38 32h28c10 0 18 8 18 18v48c0 8-6 14-14 14H38c-8 0-14-6-14-14V46c0-8 6-14 14-14Z' fill='%23fff'/%3E%3Cpath d='M76 28c10 0 18 8 18 18v34h6c6 0 10-4 10-10v-9c0-6-2-11-6-15l-8-8V28h-8v18l10 10c2 2 4 6 4 10v4c0 2-2 4-4 4h-4V46c0-10-8-18-18-18H44c-10 0-18 8-18 18v44c0 10 8 18 18 18h32c10 0 18-8 18-18V46c0-10-8-18-18-18H44c-10 0-18 8-18 18' fill='%233b82f6'/%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" },
+        { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='56' fill='%231e293b'/%3E%3Cpath d='M76 64h80c18 0 32 14 32 32v96c0 14-10 24-24 24H76c-14 0-24-10-24-24V88c0-14 10-24 24-24Z' fill='%23fff'/%3E%3Cpath d='M156 56c18 0 32 14 32 32v68h10c10 0 18-8 18-18v-20c0-10-4-20-12-26l-16-14V56h-16v34l18 16c4 4 6 10 6 16v8c0 4-4 8-8 8h-6V88c0-18-14-32-32-32H92c-18 0-32 14-32 32v100c0 18 14 32 32 32h64c18 0 32-14 32-32V88c0-18-14-32-32-32H92c-18 0-32 14-32 32' fill='%233b82f6'/%3E%3C/svg%3E", sizes: "512x512", type: "image/svg+xml" }
+      ]
+    };
+
+    const swScript = `
+      const CACHE_NAME = 'fuel-tracker-v1';
+      const URLS = ['.', '/'];
+      self.addEventListener('install', (event) => {
+        event.waitUntil(
+          caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS)).then(() => self.skipWaiting())
+        );
+      });
+      self.addEventListener('activate', (event) => {
+        event.waitUntil(
+          caches.keys().then((keys) =>
+            Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+          ).then(() => self.clients.claim())
+        );
+      });
+      self.addEventListener('fetch', (event) => {
+        if (event.request.method !== 'GET') return;
+        event.respondWith(
+          caches.match(event.request).then((cached) => {
+            if (cached) return cached;
+            return fetch(event.request).then((response) => {
+              if (!response || response.status !== 200 || response.type === 'opaque') return response;
+              const copy = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+              return response;
+            }).catch(() => cached);
+          })
+        );
+      });
+    `;
+
+    const qs = (sel) => document.querySelector(sel);
+    const qsa = (sel) => Array.from(document.querySelectorAll(sel));
+
+    const elements = {
+      stats: qs('#stats'),
+      history: qs('#history'),
+      fab: qs('#fab'),
+      dialog: qs('#entry-dialog'),
+      form: qs('#entry-form'),
+      formTitle: qs('#form-title'),
+      submit: qs('#submit-btn'),
+      cancel: qs('#cancel-btn'),
+      banner: qs('#banner'),
+      distance: qs('#distance'),
+      fuel: qs('#fuel'),
+      date: qs('#date'),
+      notes: qs('#notes'),
+      mapToggle: qs('#map-helper-toggle'),
+      mapRow: qs('#map-helper-row'),
+      mapApply: qs('#map-helper-apply'),
+      mapInput: qs('#map-distance'),
+      mapError: qs('#map-helper-error'),
+      mapActions: qs('#map-helper-actions'),
+      mapOpen: qs('#map-helper-open'),
+      mapPaste: qs('#map-helper-paste'),
+      errors: {
+        distance: qs('#distance-error'),
+        fuel: qs('#fuel-error'),
+        date: qs('#date-error'),
+        notes: qs('#notes-error'),
+      },
+    };
+
+    const state = {
+      data: null,
+      editId: null,
+      storageSupported: true,
+      mapIntent: false,
+    };
+
+    const defaultData = {
+      entries: [],
+      settings: { darkMode: 'auto', language: 'id' },
+    };
+
+    const freshData = () => ({
+      entries: [],
+      settings: { ...defaultData.settings },
+    });
+
+    function supportsLocalStorage() {
+      try {
+        const testKey = '__fuel_test__';
+        localStorage.setItem(testKey, '1');
+        localStorage.removeItem(testKey);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function safeParse(raw) {
+      try {
+        return JSON.parse(raw);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function validateEntry(entry) {
+      if (!entry || typeof entry !== 'object') return false;
+      return typeof entry.id === 'string'
+        && typeof entry.date === 'string'
+        && typeof entry.timestamp === 'number'
+        && typeof entry.distance === 'number'
+        && entry.distance > 0
+        && typeof entry.fuel === 'number'
+        && entry.fuel > 0;
+    }
+
+    function normalizeData(raw) {
+      if (!raw || typeof raw !== 'object') return freshData();
+      const entries = Array.isArray(raw.entries) ? raw.entries.filter(validateEntry) : [];
+      const normalizedEntries = entries.map((e) => ({
+        ...e,
+        ratio: computeRatio(e.distance, e.fuel),
+      }));
+      const settings = raw.settings && typeof raw.settings === 'object'
+        ? { darkMode: raw.settings.darkMode || 'auto', language: 'id' }
+        : { ...defaultData.settings };
+      return { entries: normalizedEntries, settings };
+    }
+
+    function loadData() {
+      state.storageSupported = supportsLocalStorage();
+      if (!state.storageSupported) {
+        showBanner('LocalStorage tidak tersedia. Data tidak akan tersimpan.');
+        state.data = freshData();
+        return;
+      }
+
+      const raw = localStorage.getItem('fuelTrackerData');
+      if (!raw) {
+        state.data = freshData();
+        saveData();
+        return;
+      }
+      const parsed = safeParse(raw);
+      state.data = normalizeData(parsed);
+      if (!parsed) {
+        showBanner('Data tersimpan rusak. Data direset.');
+        saveData();
+      }
+    }
+
+    function saveData() {
+      if (!state.storageSupported) return;
+      try {
+        localStorage.setItem('fuelTrackerData', JSON.stringify(state.data));
+      } catch (error) {
+        showBanner('Gagal menyimpan. Pastikan penyimpanan masih tersedia.');
+        console.error(error);
+      }
+    }
+
+    function id() {
+      return `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+
+    function computeRatio(distance, fuel) {
+      if (!fuel) return null;
+      const ratio = distance / fuel;
+      if (!isFinite(ratio)) return null;
+      return ratio;
+    }
+
+    function formatNumber(value, opts = {}) {
+      const nf = new Intl.NumberFormat('id-ID', opts);
+      return nf.format(value);
+    }
+
+    function formatFuel(fuel) {
+      if (fuel < 1) return formatNumber(fuel, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+      return formatNumber(fuel, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function ratioLabel(value) {
+      if (value === null) return 'Invalid';
+      return `1:${value.toFixed(2)}`;
+    }
+
+    function ratioColor(value) {
+      if (value === null) return 'var(--danger)';
+      if (value >= 25) return 'var(--success)';
+      if (value >= 15) return 'var(--warning)';
+      return 'var(--danger)';
+    }
+
+    function showBanner(message) {
+      elements.banner.textContent = message;
+      elements.banner.style.display = 'block';
+    }
+
+    function hideBanner() {
+      elements.banner.style.display = 'none';
+    }
+
+    function renderStats() {
+      const entries = state.data.entries;
+      if (!entries.length) {
+        elements.stats.innerHTML = `
+          <div class="stat">
+            <span class="label">Rata-rata</span>
+            <div class="value">-</div>
+          </div>
+          <div class="stat">
+            <span class="label">Terbaik</span>
+            <div class="value">-</div>
+          </div>
+          <div class="stat">
+            <span class="label">Terburuk</span>
+            <div class="value">-</div>
+          </div>
+          <div class="stat">
+            <span class="label">Total</span>
+            <div class="value">0 km / 0 L</div>
+          </div>
+        `;
+        return;
+      }
+
+      const totalDistance = entries.reduce((sum, e) => sum + e.distance, 0);
+      const totalFuel = entries.reduce((sum, e) => sum + e.fuel, 0);
+      const avg = totalFuel ? totalDistance / totalFuel : null;
+      const ratios = entries.map((e) => e.ratio).filter((r) => r !== null);
+      const best = ratios.length ? Math.max(...ratios) : null;
+      const worst = ratios.length ? Math.min(...ratios) : null;
+
+      elements.stats.innerHTML = `
+        <div class="stat">
+          <span class="label">Rata-rata</span>
+          <div class="value">${avg === null ? 'Invalid' : `${avg.toFixed(2)} km/L`}</div>
+        </div>
+        <div class="stat">
+          <span class="label">Terbaik</span>
+          <div class="value">${best === null ? '-' : `${best.toFixed(2)} km/L`}</div>
+        </div>
+        <div class="stat">
+          <span class="label">Terburuk</span>
+          <div class="value">${worst === null ? '-' : `${worst.toFixed(2)} km/L`}</div>
+        </div>
+        <div class="stat">
+          <span class="label">Total</span>
+          <div class="value">${formatNumber(totalDistance, { maximumFractionDigits: 1 })} km / ${formatFuel(totalFuel)} L</div>
+        </div>
+      `;
+    }
+
+    function renderHistory() {
+      const entries = state.data.entries;
+      if (!entries.length) {
+        elements.history.innerHTML = `<div class="empty">Belum ada data. Tap + untuk menambah.</div>`;
+        return;
+      }
+
+      elements.history.innerHTML = '';
+      entries.forEach((entry) => {
+        const card = document.createElement('article');
+        card.className = 'card';
+        card.dataset.id = entry.id;
+        card.style.setProperty('--bar', ratioColor(entry.ratio));
+        card.innerHTML = `
+          <span class="delete-hint">Tahan untuk hapus</span>
+          <div class="meta">
+            <span>${formatDate(entry.timestamp)}</span>
+            <span>${ratioLabel(entry.ratio)}</span>
+          </div>
+          <div class="sub">
+            <span>${formatNumber(entry.distance, { maximumFractionDigits: 1 })} km</span>
+            <span>${formatFuel(entry.fuel)} L</span>
+          </div>
+          ${entry.notes ? `<div class="notes">${escapeHtml(entry.notes)}</div>` : ''}
+        `;
+        attachCardEvents(card, entry);
+        elements.history.appendChild(card);
+      });
+    }
+
+    function formatDate(ts) {
+      return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(ts));
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char] || char));
+    }
+
+    function setFormDefaults(entry = null) {
+      const today = new Date();
+      const iso = today.toISOString().slice(0, 10);
+      elements.form.reset();
+      elements.distance.value = entry ? entry.distance : '';
+      elements.fuel.value = entry ? entry.fuel : '';
+      elements.date.value = entry ? entry.date : iso;
+      elements.notes.value = entry ? entry.notes || '' : '';
+      clearErrors();
+      state.editId = entry ? entry.id : null;
+      elements.formTitle.textContent = entry ? 'Edit Catatan' : 'Catat Pengisian';
+      elements.submit.textContent = entry ? 'Perbarui' : 'Simpan';
+      updateSubmitState();
+    }
+
+    function clearErrors() {
+      Object.values(elements.errors).forEach((el) => (el.textContent = ''));
+    }
+
+    function validateForm() {
+      let valid = true;
+      const distance = Number(elements.distance.value);
+      const fuel = Number(elements.fuel.value);
+      const date = elements.date.value;
+      clearErrors();
+
+      if (!distance || distance <= 0) {
+        elements.errors.distance.textContent = 'Jarak harus lebih dari 0';
+        valid = false;
+      } else if (distance > 9999) {
+        elements.errors.distance.textContent = 'Maksimal 9999 km';
+        valid = false;
+      }
+
+      if (!fuel || fuel <= 0) {
+        elements.errors.fuel.textContent = 'BBM harus lebih dari 0';
+        valid = false;
+      } else if (fuel > 99) {
+        elements.errors.fuel.textContent = 'Maksimal 99 L';
+        valid = false;
+      }
+
+      if (!date) {
+        elements.errors.date.textContent = 'Tanggal wajib diisi';
+        valid = false;
+      }
+
+      elements.submit.disabled = !valid;
+      return valid;
+    }
+
+    function toggleMapHelper() {
+      const willShow = elements.mapRow.hidden;
+      elements.mapRow.hidden = !willShow;
+      elements.mapActions.hidden = !willShow;
+      elements.mapError.textContent = '';
+      if (willShow) {
+        elements.mapInput.focus();
+        elements.mapInput.select();
+      }
+    }
+
+    function parseDistanceText(text) {
+      if (!text) return null;
+      const normalized = text.replace(',', '.');
+      const match = normalized.match(/(\d+(?:\.\d+)?)/);
+      if (!match) return null;
+      const value = parseFloat(match[1]);
+      if (!isFinite(value) || value <= 0) return null;
+      return value;
+    }
+
+    function applyMapDistance() {
+      const parsed = parseDistanceText(elements.mapInput.value.trim());
+      if (parsed === null) {
+        elements.mapError.textContent = 'Tidak bisa baca jarak. Gunakan format "12,3 km".';
+        return;
+      }
+      elements.mapError.textContent = '';
+      elements.distance.value = parsed;
+      state.mapIntent = false;
+      updateSubmitState();
+      elements.distance.focus();
+    }
+
+    let pasteCueTimeout = null;
+    function startPasteCue() {
+      if (pasteCueTimeout) clearTimeout(pasteCueTimeout);
+      elements.mapPaste.classList.add('cta-pulse');
+      pasteCueTimeout = setTimeout(() => {
+        elements.mapPaste.classList.remove('cta-pulse');
+      }, 4200);
+    }
+
+    async function pasteFromClipboard() {
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        elements.mapError.textContent = 'Clipboard tidak tersedia di browser ini.';
+        return;
+      }
+      try {
+        const text = await navigator.clipboard.readText();
+        elements.mapInput.value = text || '';
+        applyMapDistance();
+      } catch (err) {
+        elements.mapError.textContent = 'Gagal akses clipboard. Pastikan izin diberikan.';
+        console.error(err);
+      }
+    }
+
+    function updateSubmitState() {
+      elements.submit.disabled = !validateForm();
+    }
+
+    function openDialog(entry = null) {
+      setFormDefaults(entry);
+      elements.dialog.showModal();
+    }
+
+    function closeDialog() {
+      elements.dialog.close();
+      state.editId = null;
+      state.mapIntent = false;
+    }
+
+    function addEntry(entry) {
+      state.data.entries.push(entry);
+      sortEntries();
+      saveData();
+      renderAll();
+    }
+
+    function updateEntry(updated) {
+      const idx = state.data.entries.findIndex((e) => e.id === updated.id);
+      if (idx !== -1) {
+        state.data.entries[idx] = updated;
+        sortEntries();
+        saveData();
+        renderAll();
+      }
+    }
+
+    function deleteEntry(entryId) {
+      state.data.entries = state.data.entries.filter((e) => e.id !== entryId);
+      saveData();
+      renderAll();
+    }
+
+    function sortEntries() {
+      state.data.entries.sort((a, b) => b.timestamp - a.timestamp);
+    }
+
+    function attachCardEvents(card, entry) {
+      let timer = null;
+      let longPressed = false;
+
+      const clear = () => {
+        if (timer) clearTimeout(timer);
+        timer = null;
+      };
+
+      card.addEventListener('pointerdown', () => {
+        longPressed = false;
+        timer = setTimeout(() => {
+          longPressed = true;
+          clear();
+          const sure = confirm('Hapus catatan ini?');
+          if (sure) deleteEntry(entry.id);
+        }, 650);
+      });
+
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach((event) => {
+        card.addEventListener(event, clear);
+      });
+
+      card.addEventListener('click', () => {
+        if (longPressed) return;
+        openDialog(entry);
+      });
+    }
+
+    function buildEntryFromForm() {
+      const distance = Number(elements.distance.value);
+      const fuel = Number(elements.fuel.value);
+      const dateStr = elements.date.value;
+      const timestamp = dateStr ? new Date(dateStr + 'T00:00:00').getTime() : Date.now();
+      const ratio = computeRatio(distance, fuel);
+      return {
+        id: state.editId || id(),
+        date: dateStr,
+        distance,
+        fuel,
+        ratio,
+        notes: elements.notes.value.trim(),
+        timestamp,
+      };
+    }
+
+    function renderAll() {
+      renderStats();
+      renderHistory();
+    }
+
+    function wireEvents() {
+      elements.fab.addEventListener('click', () => openDialog());
+      elements.cancel.addEventListener('click', closeDialog);
+      ['input', 'change'].forEach((evt) => {
+        elements.form.addEventListener(evt, updateSubmitState);
+      });
+      elements.form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!validateForm()) return;
+        const entry = buildEntryFromForm();
+        if (entry.ratio === null) {
+          elements.errors.fuel.textContent = 'Hitungan tidak valid (periksa nilai BBM)';
+          return;
+        }
+        if (state.editId) {
+          updateEntry(entry);
+        } else {
+          addEntry(entry);
+        }
+        closeDialog();
+      });
+
+      elements.mapToggle.addEventListener('click', toggleMapHelper);
+      elements.mapApply.addEventListener('click', applyMapDistance);
+      elements.mapInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyMapDistance();
+        }
+      });
+      elements.mapPaste.addEventListener('click', pasteFromClipboard);
+      elements.mapOpen.addEventListener('click', () => {
+        state.mapIntent = true;
+        if (elements.mapRow.hidden) toggleMapHelper();
+        startPasteCue();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && state.mapIntent) {
+          startPasteCue();
+          elements.mapInput.focus();
+          elements.mapInput.select();
+        }
+      });
+    }
+
+    function installManifest() {
+      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = url;
+      document.head.appendChild(link);
+    }
+
+    function registerServiceWorker() {
+      if (!('serviceWorker' in navigator)) return;
+      const blob = new Blob([swScript], { type: 'text/javascript' });
+      const url = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(url).catch((err) => console.error('SW register failed', err));
+    }
+
+    function init() {
+      installManifest();
+      registerServiceWorker();
+      loadData();
+      sortEntries();
+      renderAll();
+      wireEvents();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
