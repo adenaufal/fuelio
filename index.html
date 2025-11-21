@@ -21,18 +21,20 @@
       --radius: 0.9rem;
       --border: rgba(15, 23, 42, 0.08);
       --fab-size: 3.6rem;
-      color-scheme: light;
+      --field: #f8fafc;
+      color-scheme: light dark;
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: #0b1220;
-        --surface: #111827;
+        --surface: #0f172a;
+        --field: #111a2d;
         --text: #e5e7eb;
-        --muted: #9ca3af;
-        --panel: rgba(255, 255, 255, 0.06);
-        --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-        --border: rgba(255, 255, 255, 0.08);
+        --muted: #cbd5e1;
+        --panel: rgba(255, 255, 255, 0.05);
+        --shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+        --border: rgba(255, 255, 255, 0.12);
       }
       body {
         background: radial-gradient(120% 120% at 20% 20%, rgba(59, 130, 246, 0.08), transparent 55%), var(--bg);
@@ -226,6 +228,7 @@
       padding: 0;
       background: transparent;
       box-shadow: none;
+      max-height: 90vh;
     }
 
     dialog::backdrop {
@@ -239,6 +242,8 @@
       border: 1px solid var(--border);
       box-shadow: var(--shadow);
       padding: calc(var(--spacing) * 3);
+      max-height: 90vh;
+      overflow-y: auto;
     }
 
     .modal header {
@@ -321,11 +326,17 @@
       padding: calc(var(--spacing) * 1.5);
       border-radius: var(--radius);
       border: 1px solid var(--border);
-      background: var(--bg);
+      background: var(--field);
       color: var(--text);
       font-size: 1rem;
       outline: none;
       transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--muted);
+      opacity: 0.9;
     }
 
     input:focus, textarea:focus {
@@ -358,7 +369,7 @@
     }
 
     button.secondary {
-      background: var(--panel);
+      background: var(--field);
       color: var(--text);
       border: 1px solid var(--border);
     }
@@ -435,7 +446,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: calc(var(--spacing) * 1.1) calc(var(--spacing) * 1.5);
-      background: var(--panel);
+      background: var(--field);
       transition: transform 0.15s ease, box-shadow 0.2s ease;
     }
 
@@ -588,6 +599,7 @@
       history: qs('#history'),
       fab: qs('#fab'),
       dialog: qs('#entry-dialog'),
+      modal: qs('.modal'),
       form: qs('#entry-form'),
       formTitle: qs('#form-title'),
       submit: qs('#submit-btn'),
@@ -1081,6 +1093,11 @@
           elements.mapInput.select();
         }
       });
+      elements.dialog.addEventListener('click', (event) => {
+        if (event.target === elements.dialog) {
+          closeDialog();
+        }
+      });
     }
 
     function installManifest() {
@@ -1090,6 +1107,23 @@
       link.rel = 'manifest';
       link.href = url;
       document.head.appendChild(link);
+    }
+
+    function applyThemeColor() {
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      let meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = 'theme-color';
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', prefersDark ? '#0b1220' : '#ffffff');
+    }
+
+    function bindThemeWatcher() {
+      if (!window.matchMedia) return;
+      const mql = window.matchMedia('(prefers-color-scheme: dark)');
+      mql.addEventListener('change', applyThemeColor);
     }
 
     function registerServiceWorker() {
@@ -1102,6 +1136,8 @@
     function init() {
       installManifest();
       registerServiceWorker();
+      applyThemeColor();
+      bindThemeWatcher();
       loadData();
       sortEntries();
       renderAll();
